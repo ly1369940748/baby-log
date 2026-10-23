@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="宝宝作息">
+<meta name="theme-color" content="#FBF7F2">
+<title>宝宝作息记录</title>
+<link rel="apple-touch-icon" href="">
+<style>
+:root{
+  --bg:#FBF7F2; --card:#FFFFFF; --text:#2E2A26; --sub:#6B6259; --muted:#A09689;
+  --line:#EDE5DC; --line2:#F5EFE8;
+  --feed:#F2994A; --feed-bg:#FEF3E7;
+  --sleep:#6E8FB8; --sleep-bg:#EDF2F8;
+  --pee:#4DB8D9;  --pee-bg:#E9F7FC;
+  --poop:#B58A54; --poop-bg:#F7F1E8;
+  --ok:#4CAF7D; --err:#E05A5A;
+  --r:16px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Microsoft YaHei",sans-serif;
+  font-size:16px; line-height:1.5; overscroll-behavior-y:none;
+  -webkit-font-smoothing:antialiased;
+}
+body{display:flex;flex-direction:column;height:100vh;height:100dvh}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;font-size:inherit}
+input,select,textarea{font-family:inherit;font-size:16px;color:var(--text)}
+
+/* ---------- 顶栏 ---------- */
+.topbar{
+  flex:0 0 auto; display:flex; align-items:center; justify-content:space-between;
+  padding:calc(env(safe-area-inset-top) + 12px) 16px 12px;
+  background:var(--bg); border-bottom:1px solid var(--line2);
+}
+.brand{display:flex;align-items:center;gap:8px;font-size:17px;font-weight:600;letter-spacing:.3px}
+.brand .dot{font-size:19px}
+.syncchip{
+  display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);
+  background:#fff;border:1px solid var(--line);border-radius:999px;padding:5px 11px;
+}
+.syncchip b{font-weight:500}
+.syncchip .pulse{width:7px;height:7px;border-radius:50%;background:var(--muted);flex:0 0 auto}
+.syncchip.on .pulse{background:var(--ok)}
+.syncchip.busy .pulse{background:var(--pee);animation:blink 1s infinite}
+.syncchip.err .pulse{background:var(--err)}
+@keyframes blink{50%{opacity:.25}}
+
+/* ---------- 主区 ---------- */
+main{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 16px 24px}
+.view{display:none;animation:fade .18s ease}
+.view.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+.hint{
+  display:flex;gap:8px;align-items:flex-start;background:#FFF6E8;border:1px solid #F7E3C2;
+  color:#8A6420;border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.45;margin-bottom:14px;
+}
+.hint > div{flex:1 1 auto;min-width:0}
+.hint button{color:#C2761A;text-decoration:underline;font-size:13px;white-space:nowrap;flex:0 0 auto}
+
+/* ---------- 状态卡 ---------- */
+.status{
+  background:linear-gradient(135deg,#FFF7EE 0%,#FFFFFF 60%);
+  border:1px solid var(--line);border-radius:20px;padding:16px 18px;margin-bottom:16px;
+  box-shadow:0 1px 3px rgba(120,100,80,.05);
+}
+.status .big{font-size:22px;font-weight:600;letter-spacing:.2px;display:flex;align-items:center;gap:8px}
+.status .big .em{font-size:24px}
+.status.sleeping .big{color:var(--sleep)}
+.status .sub{display:flex;gap:18px;margin-top:10px;font-size:13px;color:var(--sub);flex-wrap:wrap}
+.status .sub div{display:flex;align-items:center;gap:5px}
+.status .sub b{font-weight:600;color:var(--text);font-variant-numeric:tabular-nums}
+
+/* ---------- 四个大按钮 ---------- */
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+.act{
+  position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  height:108px;border-radius:22px;background:var(--card);border:1px solid var(--line);
+  font-size:14px;font-weight:600;color:var(--text);
+  box-shadow:0 1px 2px rgba(120,100,80,.05);
+  transition:transform .1s ease, box-shadow .1s ease;
+  touch-action:manipulation;
+}
+.act .ico{font-size:32px;line-height:1}
+.act:active{transform:scale(.965);box-shadow:none}
+.act[data-act=feed]{background:var(--feed-bg);border-color:#F8DFC4}
+.act[data-act=sleep]{background:var(--sleep-bg);border-color:#DDE7F1}
+.act[data-act=pee]{background:var(--pee-bg);border-color:#D3EEF7}
+.act[data-act=poop]{background:var(--poop-bg);border-color:#EFE3D1}
+.act[data-act=sleep].sleeping{background:var(--sleep);border-color:var(--sleep);color:#fff}
+
+/* ---------- 今日汇总 ---------- */
+.sec-head{display:flex;align-items:baseline;justify-content:space-between;margin:0 4px 10px}
+.sec-head h2{font-size:15px;font-weight:600;margin:0;letter-spacing:.3px}
+.sec-head .more{font-size:13px;color:var(--muted)}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:11px 8px;text-align:center}
+.kpi .n{font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.2}
+.kpi .n small{font-size:11px;font-weight:500;color:var(--muted);margin-left:1px}
+.kpi .l{font-size:11px;color:var(--muted);margin-top:3px}
+
+/* ---------- 时间轴 ---------- */
+.tl{display:flex;flex-direction:column;gap:1px;background:var(--line2);border-radius:14px;overflow:hidden}
+.tl .row{
+  display:flex;align-items:center;gap:12px;background:var(--card);padding:12px 14px;
+  touch-action:manipulation;
+}
+.tl .row:active{background:#FAF6F1}
+.tl .t{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;width:44px;flex:0 0 auto}
+.tl .ic{font-size:19px;width:24px;text-align:center;flex:0 0 auto}
+.tl .txt{flex:1 1 auto;min-width:0}
+.tl .txt .m{font-size:14.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl .txt .d{font-size:12px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl .tag{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:1px 7px;flex:0 0 auto}
+.empty{text-align:center;color:var(--muted);font-size:13.5px;padding:36px 20px;line-height:1.7}
+
+.daygroup{margin-bottom:18px}
+.dayhead{
+  display:flex;align-items:baseline;justify-content:space-between;
+  font-size:13px;color:var(--sub);margin:0 4px 8px;font-weight:600;
+}
+.dayhead .sm{font-weight:400;color:var(--muted);font-size:12px}
+
+/* ---------- 图表 ---------- */
+.chart{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:16px}
+.chart h3{margin:0 0 12px;font-size:14px;font-weight:600}
+.chart h3 span{font-weight:400;color:var(--muted);font-size:12px;margin-left:6px}
+.bars{display:flex;align-items:flex-end;gap:6px;height:132px}
+.bar{flex:1 1 0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px;height:100%;min-width:0}
+.bar .col{width:100%;max-width:34px;border-radius:7px 7px 3px 3px;background:var(--feed);min-height:3px;transition:height .3s}
+.bar.s .col{background:var(--sleep)}
+.bar .v{font-size:11px;color:var(--sub);font-variant-numeric:tabular-nums;height:14px}
+.bar .k{font-size:11px;color:var(--muted);white-space:nowrap}
+.detail-list{display:flex;flex-direction:column;gap:0}
+.detail-list .dr{display:flex;justify-content:space-between;padding:9px 2px;border-bottom:1px solid var(--line2);font-size:14px}
+.detail-list .dr:last-child{border-bottom:none}
+.detail-list .dr .k{color:var(--sub)}
+.detail-list .dr .v{font-weight:600;font-variant-numeric:tabular-nums}
+
+/* ---------- 设置 ---------- */
+.field{margin-bottom:14px}
+.field label{display:block;font-size:13px;color:var(--sub);margin-bottom:6px;font-weight:500}
+.field input{
+  width:100%;padding:12px 13px;border:1px solid var(--line);border-radius:12px;background:#fff;outline:none;
+}
+.field input:focus{border-color:var(--feed)}
+.field .tip{font-size:12px;color:var(--muted);margin-top:5px;line-height:1.5}
+.btn{
+  width:100%;padding:13px;border-radius:14px;font-size:15px;font-weight:600;background:#fff;
+  border:1px solid var(--line);margin-bottom:10px;
+}
+.btn:active{background:#F7F2EC}
+.btn.pri{background:var(--feed);border-color:var(--feed);color:#fff}
+.btn.pri:active{opacity:.85}
+.btn.danger{color:var(--err);border-color:#F3D6D6}
+.btn.ok{color:var(--ok);border-color:#D5EBE0}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:16px}
+.panel > h3{margin:0 0 14px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px}
+.steps{font-size:13px;color:var(--sub);line-height:1.75;margin:0;padding-left:18px}
+.steps li{margin-bottom:5px}
+.steps code{background:#F4EFE9;border-radius:5px;padding:1px 5px;font-size:12px;word-break:break-all}
+.sec-title{font-size:13px;color:var(--muted);margin:20px 4px 8px;font-weight:600;letter-spacing:.5px}
+
+/* ---------- 底部导航 ---------- */
+.tabbar{
+  flex:0 0 auto;display:grid;grid-template-columns:repeat(4,1fr);
+  background:rgba(255,255,255,.92);backdrop-filter:blur(12px);
+  border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);
+}
+.tab{
+  display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 0 7px;
+  font-size:11px;color:var(--muted);touch-action:manipulation;
+}
+.tab .ti{font-size:20px;line-height:1;filter:grayscale(1);opacity:.5}
+.tab.active{color:var(--feed)}
+.tab.active .ti{filter:none;opacity:1}
+
+/* ---------- 弹层 ---------- */
+.mask{
+  position:fixed;inset:0;background:rgba(40,32,26,.42);z-index:60;
+  display:none;align-items:flex-end;justify-content:center;
+}
+.mask.show{display:flex}
+.sheet{
+  width:100%;max-width:520px;background:var(--bg);border-radius:22px 22px 0 0;
+  padding:18px 18px calc(18px + env(safe-area-inset-bottom));
+  animation:up .22s cubic-bezier(.2,.8,.3,1);
+  max-height:88vh;overflow-y:auto;
+}
+@keyframes up{from{transform:translateY(100%)}to{transform:none}}
+.sheet h3{margin:0 0 16px;font-size:17px;font-weight:600;text-align:center}
+.sheet .row2{display:flex;gap:10px}
+.sheet .row2 > *{flex:1}
+.tbtn{
+  padding:14px 8px;border-radius:14px;border:1.5px solid var(--line);background:#fff;
+  font-size:14px;font-weight:600;text-align:center;line-height:1.3;
+}
+.tbtn .em{display:block;font-size:22px;margin-bottom:3px}
+.tbtn.sel{border-color:var(--feed);background:var(--feed-bg);color:#B9691A}
+.mini{display:flex;gap:8px;margin-top:9px;flex-wrap:wrap}
+.mini button{
+  flex:1 1 0;min-width:56px;padding:9px 4px;border-radius:10px;border:1px solid var(--line);
+  background:#fff;font-size:13px;font-weight:500;color:var(--sub);font-variant-numeric:tabular-nums;
+}
+.mini button:active{background:var(--feed-bg);border-color:#F8DFC4}
+.amtrow{display:flex;gap:9px;align-items:center}
+.amtrow input{flex:1 1 auto}
+.amtrow .unit{font-size:13px;color:var(--muted);flex:0 0 auto}
+.sheet .btns{display:flex;gap:10px;margin-top:18px}
+.sheet .btns button{flex:1 1 0}
+.sheet .lbl{font-size:13px;color:var(--sub);font-weight:500;margin:14px 0 7px}
+
+/* ---------- toast ---------- */
+#toast{
+  position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translate(-50%,12px);
+  background:rgba(45,38,32,.92);color:#fff;padding:10px 18px;border-radius:999px;font-size:14px;
+  z-index:99;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;white-space:nowrap;max-width:88vw;
+  overflow:hidden;text-overflow:ellipsis;
+}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><span class="dot">👶</span><span id="babyName">宝宝</span></div>
+  <button class="syncchip" id="syncChip"><span class="pulse"></span><b id="syncText">本地模式</b></button>
+</header>
+
+<main id="main">
+  <!-- ============ 记录 ============ -->
+  <section class="view active" id="view-record">
+    <div id="cloudHint"></div>
+    <div class="status" id="statusCard"></div>
+    <div class="actions">
+      <button class="act" data-act="feed"><span class="ico">🍼</span>吃奶</button>
+      <button class="act" data-act="sleep" id="sleepBtn"><span class="ico">😴</span><span id="sleepBtnTxt">睡觉</span></button>
+      <button class="act" data-act="pee"><span class="ico">💧</span>小便</button>
+      <button class="act" data-act="poop"><span class="ico">💩</span>大便</button>
+    </div>
+    <div class="sec-head"><h2>今日汇总</h2><span class="more" id="todayLabel"></span></div>
+    <div class="cards" id="todayKpi"></div>
+    <div class="sec-head"><h2>今日记录</h2></div>
+    <div id="todayList"></div>
+  </section>
+
+  <!-- ============ 历史 ============ -->
+  <section class="view" id="view-history">
+    <div class="sec-head"><h2>全部记录</h2><span class="more" id="histCount"></span></div>
+    <div id="histList"></div>
+  </section>
+
+  <!-- ============ 统计 ============ -->
+  <section class="view" id="view-stats">
+    <div class="chart">
+      <h3>近 7 天喂养次数<span>次/天</span></h3>
+      <div class="bars" id="chartFeed"></div>
+    </div>
+    <div class="chart">
+      <h3>近 7 天睡眠时长<span>小时/天</span></h3>
+      <div class="bars" id="chartSleep"></div>
+    </div>
+    <div class="chart">
+      <h3>今日明细</h3>
+      <div class="detail-list" id="statsDetail"></div>
+    </div>
+    <button class="btn pri" id="btnExport">导出 CSV 数据</button>
+    <div class="field"><div class="tip" style="text-align:center">导出的文件可通过微信 / 邮件发送，或用 Excel 打开。</div></div>
+  </section>
+
+  <!-- ============ 设置 ============ -->
+  <section class="view" id="view-settings">
+    <div class="panel">
+      <h3>👶 基本信息</h3>
+      <div class="field">
+        <label>宝宝小名</label>
+        <input id="setBabyName" placeholder="例如：小满">
+      </div>
+      <div class="field">
+        <label>这台设备</label>
+        <input id="setDevice" placeholder="例如：妈妈手机 / 爸爸手机">
+        <div class="tip">用来区分是谁记录的，方便两个人对照。</div>
+      </div>
+      <button class="btn pri" id="btnSaveBase">保存</button>
+    </div>
+
+    <div class="panel">
+      <h3>☁️ 多设备同步</h3>
+      <div id="cloudState"></div>
+      <div class="field">
+        <label>Supabase 项目地址 (URL)</label>
+        <input id="setSbUrl" placeholder="https://xxxxx.supabase.co" autocapitalize="off" autocorrect="off" spellcheck="false">
+      </div>
+      <div class="field">
+        <label>Supabase 匿名密钥 (anon key)</label>
+        <input id="setSbKey" placeholder="eyJhbGci...（很长一串）" autocapitalize="off" autocorrect="off" spellcheck="false">
+      </div>
+      <div class="field">
+        <label>家庭码</label>
+        <input id="setFamily" placeholder="例如：baobao-8f3k2" autocapitalize="off" autocorrect="off" spellcheck="false">
+        <div class="tip">两台手机必须填<b>完全相同</b>的家庭码，才能看到同一份数据。建议用一串别人猜不到的字符。</div>
+      </div>
+      <button class="btn pri" id="btnSaveCloud">保存并连接</button>
+      <button class="btn" id="btnSyncNow">立即同步</button>
+      <button class="btn" id="btnDropCloud">断开云同步（回到本地模式）</button>
+    </div>
+
+    <div class="panel">
+      <h3>📖 配置教程</h3>
+      <ol class="steps">
+        <li>手机浏览器打开 <code>supabase.com</code>，注册并新建一个 Project（区域选 Singapore 更快）。</li>
+        <li>左侧点 <b>SQL Editor</b>，把下面这段 SQL 粘进去，点 <b>Run</b> 建表。</li>
+        <li>左侧点 <b>Project Settings → API</b>，复制 <b>Project URL</b> 和 <b>anon public</b> 两个值。</li>
+        <li>回到本页，把 URL、anon key 填进去，家庭码自己编一个，点「保存并连接」。</li>
+        <li>另一台手机打开同一个网址，填同样的三个值，即可共享数据。</li>
+      </ol>
+      <button class="btn" id="btnCopySql" style="margin-top:14px">复制建表 SQL</button>
+    </div>
+
+    <div class="panel">
+      <h3>⚠️ 数据管理</h3>
+      <button class="btn danger" id="btnClear">清空本机全部记录</button>
+      <div class="tip" style="text-align:center">只清空这台手机，云端数据不受影响。</div>
+    </div>
+
+    <div style="text-align:center;color:var(--muted);font-size:12px;padding:8px 0 4px">
+      宝宝作息记录 · 数据归你自己所有
+    </div>
+  </section>
+</main>
+
+<nav class="tabbar">
+  <button class="tab active" data-tab="record"><span class="ti">✏️</span>记录</button>
+  <button class="tab" data-tab="history"><span class="ti">📋</span>历史</button>
+  <button class="tab" data-tab="stats"><span class="ti">📊</span>统计</button>
+  <button class="tab" data-tab="settings"><span class="ti">⚙️</span>设置</button>
+</nav>
+
+<!-- ============ 吃奶弹层 ============ -->
+<div class="mask" id="feedMask">
+  <div class="sheet">
+    <h3>记录吃奶</h3>
+    <div class="row2" id="feedTypes">
+      <button class="tbtn" data-v="breast"><span class="em">🤱</span>母乳亲喂</button>
+      <button class="tbtn" data-v="bottle"><span class="em">🍼</span>瓶喂</button>
+      <button class="tbtn" data-v="formula"><span class="em">🥛</span>配方奶</button>
+    </div>
+    <div class="lbl">时间</div>
+    <div class="amtrow"><input type="time" id="feedTime" style="flex:1"><button class="tbtn" id="feedNow" style="padding:12px 16px;flex:0 0 auto">现在</button></div>
+    <div id="feedAmtWrap">
+      <div class="lbl">奶量（毫升，可留空）</div>
+      <div class="amtrow"><input type="number" inputmode="numeric" id="feedAmount" placeholder="例如 120"><span class="unit">ml</span></div>
+      <div class="mini" id="feedChips"></div>
+    </div>
+    <div class="lbl">备注（可留空）</div>
+    <input id="feedNote" placeholder="例如：一觉睡到自然醒" style="width:100%;padding:12px 13px;border:1px solid var(--line);border-radius:12px;background:#fff;outline:none">
+    <div class="btns">
+      <button class="btn" data-close="feedMask" style="margin:0">取消</button>
+      <button class="btn pri" id="feedSave" style="margin:0">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 通用操作弹层 ============ -->
+<div class="mask" id="actMask">
+  <div class="sheet">
+    <h3 id="actTitle">记录详情</h3>
+    <div id="actBody"></div>
+    <div class="btns">
+      <button class="btn" data-close="actMask" style="margin:0">取消</button>
+      <button class="btn pri" id="actSave" style="margin:0">保存</button>
+    </div>
+    <button class="btn danger" id="actDelete" style="margin-top:10px">删除这条记录</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function(){
+'use strict';
+
+/* ================= 常量 & 状态 ================= */
+var CFG_KEY='baby_log_cfg_v1', DATA_KEY='baby_log_data_v1';
+var SQL = [
+'create table if not exists baby_records (',
+'  id uuid primary key,',
+'  family_code text not null,',
+'  type text not null,',
+'  subtype text,',
+'  amount numeric,',
+'  note text,',
+'  started_at timestamptz not null,',
+'  ended_at timestamptz,',
+'  created_by text,',
+'  created_at timestamptz not null default now()',
+');',
+'create index if not exists idx_baby_family on baby_records (family_code, started_at desc);',
+'alter table baby_records enable row level security;',
+'drop policy if exists baby_all on baby_records;',
+'create policy baby_all on baby_records for all using (true) with check (true);',
+'grant select, insert, update, delete on baby_records to anon, authenticated;'
+].join('\n');
+
+var TYPE_META = {
+  feed:  {ico:'🍼', name:'吃奶'},
+  sleep: {ico:'😴', name:'睡觉'},
+  diaper:{ico:'💧', name:'尿布'}
+};
+var SUB_META = {
+  breast:'母乳亲喂', bottle:'瓶喂', formula:'配方奶',
+  sleep:'睡觉', wake:'醒来',
+  pee:'小便', poop:'大便', both:'大小便'
+};
+
+var cfg = load(CFG_KEY, {babyName:'宝宝', device:'', sbUrl:'', sbKey:'', familyCode:''});
+var records = load(DATA_KEY, []);
+var syncState = 'local';   // local | busy | ok | err
+var syncTime = '';
+var currentTab = 'record';
+var feedSub = 'breast';
+
+function load(k, dft){
+  try{ var v = localStorage.getItem(k); return v ? JSON.parse(v) : dft; }catch(e){ return dft; }
+}
+function saveCfg(){ try{ localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }catch(e){} }
+function saveData(){ try{ localStorage.setItem(DATA_KEY, JSON.stringify(records)); }catch(e){} }
+
+/* ================= 工具函数 ================= */
+var pad = function(n){ return String(n).padStart(2,'0'); };
+function uuid(){
+  if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c){
+    var r = Math.random()*16|0; return (c==='x'?r:(r&0x3|0x8)).toString(16);
+  });
+}
+function dayKey(v){ var d=new Date(v); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function nowHM(){ var d=new Date(); return pad(d.getHours())+':'+pad(d.getMinutes()); }
+function hm(iso){ var d=new Date(iso); return pad(d.getHours())+':'+pad(d.getMinutes()); }
+function fmtDur(ms){
+  if(!ms || ms<0) return '0分';
+  var m = Math.floor(ms/60000), h = Math.floor(m/60), mm = m%60;
+  if(h<=0) return mm+'分';
+  return h+'小时'+(mm>0?mm+'分':'');
+}
+function hmToISO(v, baseDate){
+  var p = String(v||'').split(':');
+  var d = baseDate ? new Date(baseDate) : new Date();
+  if(p.length<2) return new Date().toISOString();
+  d.setHours(parseInt(p[0],10)||0, parseInt(p[1],10)||0, 0, 0);
+  if(d.getTime() > Date.now() + 120000) d.setDate(d.getDate()-1); // 跨零点容错
+  return d.toISOString();
+}
+function esc(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+function toast(msg){
+  var el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(function(){ el.classList.remove('show'); }, 1900);
+}
+function cloudOn(){ return !!(cfg.sbUrl && cfg.sbKey && cfg.familyCode); }
+
+/* ================= 数据读写 ================= */
+function sortRecs(){
+  records.sort(function(a,b){ return new Date(b.started_at) - new Date(a.started_at); });
+}
+function addRecord(rec){
+  rec.id = rec.id || uuid();
+  rec.family_code = cfg.familyCode || 'local';
+  rec.created_by = cfg.device || '';
+  rec.created_at = new Date().toISOString();
+  rec._pending = cloudOn();
+  records.unshift(rec);
+  sortRecs(); saveData(); renderAll();
+  if(cloudOn()) pushOne(rec);
+  return rec;
+}
+function updateRecord(id, patch){
+  var r = null;
+  for(var i=0;i<records.length;i++){ if(records[i].id===id){ r = records[i]; break; } }
+  if(!r) return;
+  Object.assign(r, patch);
+  if(cloudOn()) r._pending = true;
+  sortRecs(); saveData(); renderAll();
+  if(cloudOn()) patchOne(r);
+}
+function removeRecord(id){
+  records = records.filter(function(r){ return r.id !== id; });
+  saveData(); renderAll();
+  if(cloudOn()) deleteOne(id);
+}
+
+/* ================= Supabase REST ================= */
+function sbHeaders(extra){
+  var h = {
+    'apikey': cfg.sbKey,
+    'Authorization': 'Bearer ' + cfg.sbKey,
+    'Content-Type': 'application/json'
+  };
+  if(extra) for(var k in extra) h[k] = extra[k];
+  return h;
+}
+function sbUrl(path){
+  return cfg.sbUrl.replace(/\/+$/,'') + '/rest/v1/' + path;
+}
+function setSync(state, t){
+  syncState = state; if(t) syncTime = t; renderSyncChip();
+}
+function pushOne(rec){
+  var body = JSON.parse(JSON.stringify(rec));
+  delete body._pending;
+  fetch(sbUrl('baby_records?on_conflict=id'), {
+    method:'POST',
+    headers: sbHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),
+    body: JSON.stringify([body])
+  }).then(function(res){
+    if(res.ok){ delete rec._pending; saveData(); setSync('ok', hm(new Date())); }
+    else { setSync('err'); }
+  }).catch(function(){ setSync('err'); });
+}
+function patchOne(rec){
+  var body = {subtype:rec.subtype, amount:rec.amount, note:rec.note, started_at:rec.started_at, ended_at:rec.ended_at};
+  fetch(sbUrl('baby_records?id=eq.'+encodeURIComponent(rec.id)), {
+    method:'PATCH', headers: sbHeaders({'Prefer':'return=minimal'}), body: JSON.stringify(body)
+  }).then(function(res){
+    if(res.ok){ delete rec._pending; saveData(); setSync('ok', hm(new Date())); }
+    else { setSync('err'); }
+  }).catch(function(){ setSync('err'); });
+}
+function deleteOne(id){
+  fetch(sbUrl('baby_records?id=eq.'+encodeURIComponent(id)), {
+    method:'DELETE', headers: sbHeaders({'Prefer':'return=minimal'})
+  }).then(function(res){ setSync(res.ok?'ok':'err', hm(new Date())); })
+   .catch(function(){ setSync('err'); });
+}
+function syncFull(silent){
+  if(!cloudOn()){ if(!silent) toast('尚未配置云同步'); return; }
+  if(!silent) setSync('busy');
+  var pend = records.filter(function(r){ return r._pending; });
+  var chain = Promise.resolve();
+  pend.forEach(function(r){
+    chain = chain.then(function(){
+      var body = JSON.parse(JSON.stringify(r)); delete body._pending;
+      return fetch(sbUrl('baby_records?on_conflict=id'), {
+        method:'POST', headers: sbHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),
+        body: JSON.stringify([body])
+      }).then(function(res){ if(res.ok){ delete r._pending; } });
+    });
+  });
+  chain.then(function(){
+    return fetch(sbUrl('baby_records?family_code=eq.'+encodeURIComponent(cfg.familyCode)+'&order=started_at.desc&limit=3000'),
+      {headers: sbHeaders()});
+  }).then(function(res){
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    return res.json();
+  }).then(function(list){
+    var map = {};
+    (list||[]).forEach(function(r){ map[r.id] = r; });
+    records.filter(function(r){ return r._pending; }).forEach(function(r){ map[r.id] = r; });
+    records = Object.keys(map).map(function(k){ return map[k]; });
+    sortRecs(); saveData(); renderAll();
+    setSync('ok', hm(new Date()));
+    if(!silent) toast('同步完成，共 '+records.length+' 条记录');
+  }).catch(function(e){
+    setSync('err');
+    if(!silent) toast('同步失败：'+(e && e.message ? e.message : '网络错误'));
+  });
+}
+
+/* ================= 渲染 ================= */
+function renderSyncChip(){
+  var chip = document.getElementById('syncChip');
+  var txt = document.getElementById('syncText');
+  chip.className = 'syncchip';
+  if(syncState==='local' || !cloudOn()){ txt.textContent = '本地模式'; return; }
+  if(syncState==='busy'){ chip.classList.add('busy'); txt.textContent = '同步中…'; return; }
+  if(syncState==='ok'){ chip.classList.add('on'); txt.textContent = '已同步 '+(syncTime||''); return; }
+  chip.classList.add('err'); txt.textContent = '同步失败';
+}
+function renderStatus(){
+  var card = document.getElementById('statusCard');
+  var act = activeSleep();
+  var html = '';
+  if(act){
+    card.className = 'status sleeping';
+    var dur = fmtDur(Date.now() - new Date(act.started_at).getTime());
+    var since = hm(act.started_at);
+    html += '<div class="big"><span class="em">😴</span>正在睡觉 · 已睡 '+dur+'</div>';
+    html += '<div class="sub"><div>入睡时间 <b>'+since+'</b></div><div>记录人 <b>'+esc(act.created_by||'—')+'</b></div></div>';
+  }else{
+    card.className = 'status';
+    var lastSleep = null, lastFeed = null;
+    for(var i=0;i<records.length;i++){
+      var r = records[i];
+      if(!lastSleep && r.type==='sleep' && r.ended_at) lastSleep = r;
+      if(!lastFeed && r.type==='feed') lastFeed = r;
+      if(lastSleep && lastFeed) break;
+    }
+    var parts = [];
+    if(lastFeed) parts.push('<div>距上次吃奶 <b>'+fmtDur(Date.now()-new Date(lastFeed.started_at).getTime())+'</b>（'+hm(lastFeed.started_at)+'）</div>');
+    if(lastSleep){
+      var wakeT = new Date(lastSleep.ended_at).getTime();
+      parts.push('<div>已醒 <b>'+fmtDur(Date.now()-wakeT)+'</b>（'+hm(lastSleep.ended_at)+'）</div>');
+    }
+    if(!parts.length) parts.push('<div>还没有记录，点下面按钮开始 👇</div>');
+    html += '<div class="big"><span class="em">☀️</span>宝宝醒着</div><div class="sub">'+parts.join('')+'</div>';
+  }
+  card.innerHTML = html;
+
+  var btn = document.getElementById('sleepBtn');
+  document.getElementById('sleepBtnTxt').textContent = act ? '记录醒来' : '睡觉';
+  btn.classList.toggle('sleeping', !!act);
+}
+function activeSleep(){
+  var best = null;
+  for(var i=0;i<records.length;i++){
+    var r = records[i];
+    if(r.type==='sleep' && !r.ended_at){
+      if(!best || new Date(r.started_at) > new Date(best.started_at)) best = r;
+    }
+  }
+  return best;
+}
+function recTitle(r){
+  if(r.type==='feed'){
+    var t = SUB_META[r.subtype] || '吃奶';
+    if(r.amount) t += ' · '+r.amount+'ml';
+    return t;
+  }
+  if(r.type==='sleep'){
+    if(r.ended_at){
+      var d = fmtDur(new Date(r.ended_at)-new Date(r.started_at));
+      return '睡觉 · '+d;
+    }
+    return '入睡中…';
+  }
+  return SUB_META[r.subtype] || '尿布';
+}
+function recDetail(r){
+  var p = [];
+  if(r.type==='sleep' && r.ended_at) p.push(hm(r.started_at)+' → '+hm(r.ended_at));
+  if(r.note) p.push(r.note);
+  if(r.created_by) p.push(r.created_by+' 记');
+  return p.join(' · ');
+}
+function recIcon(r){
+  if(r.type==='feed') return '🍼';
+  if(r.type==='sleep') return r.ended_at ? '😴' : '🛌';
+  return r.subtype==='poop' ? '💩' : (r.subtype==='both' ? '💩' : '💧');
+}
+function rowHTML(r){
+  return '<div class="row" data-id="'+r.id+'">'
+    + '<div class="t">'+hm(r.started_at)+'</div>'
+    + '<div class="ic">'+recIcon(r)+'</div>'
+    + '<div class="txt"><div class="m">'+esc(recTitle(r))+'</div>'
+      + (recDetail(r) ? '<div class="d">'+esc(recDetail(r))+'</div>' : '')
+    + '</div>'
+    + (r._pending ? '<div class="tag">待同步</div>' : '')
+    + '</div>';
+}
+function renderToday(){
+  var tk = dayKey(new Date());
+  var todays = records.filter(function(r){ return dayKey(r.started_at)===tk; });
+  var feeds = todays.filter(function(r){ return r.type==='feed'; });
+  var ml = feeds.reduce(function(s,r){ return s + (Number(r.amount)||0); }, 0);
+  var sleeps = todays.filter(function(r){ return r.type==='sleep'; });
+  var sleepMs = 0;
+  sleeps.forEach(function(r){
+    var end = r.ended_at ? new Date(r.ended_at).getTime() : Date.now();
+    sleepMs += Math.max(0, end - new Date(r.started_at).getTime());
+  });
+  var pees = todays.filter(function(r){ return r.type==='diaper' && (r.subtype==='pee'||r.subtype==='both'); }).length;
+  var poops = todays.filter(function(r){ return r.type==='diaper' && (r.subtype==='poop'||r.subtype==='both'); }).length;
+
+  document.getElementById('todayKpi').innerHTML =
+      '<div class="kpi"><div class="n">'+feeds.length+'</div><div class="l">吃奶 次</div></div>'
+    + '<div class="kpi"><div class="n">'+(ml||0)+'<small>ml</small></div><div class="l">总奶量</div></div>'
+    + '<div class="kpi"><div class="n">'+(sleepMs/3600000).toFixed(1)+'<small>h</small></div><div class="l">睡眠 时长</div></div>'
+    + '<div class="kpi"><div class="n">'+pees+'<small>/</small>'+poops+'</div><div class="l">小便/大便</div></div>';
+
+  var d = new Date();
+  document.getElementById('todayLabel').textContent = (d.getMonth()+1)+'月'+d.getDate()+'日';
+
+  document.getElementById('todayList').innerHTML = todays.length
+    ? '<div class="tl">'+todays.map(rowHTML).join('')+'</div>'
+    : '<div class="empty">今天还没有记录<br>点上面的按钮，一秒就能记上</div>';
+}
+function renderHistory(){
+  if(!records.length){
+    document.getElementById('histList').innerHTML = '<div class="empty">还没有任何记录</div>';
+    document.getElementById('histCount').textContent = '';
+    return;
+  }
+  var groups = {}, order = [];
+  records.forEach(function(r){
+    var k = dayKey(r.started_at);
+    if(!groups[k]){ groups[k] = []; order.push(k); }
+    groups[k].push(r);
+  });
+  var todayK = dayKey(new Date());
+  var yest = new Date(); yest.setDate(yest.getDate()-1);
+  var yestK = dayKey(yest);
+  var html = '';
+  order.forEach(function(k){
+    var label = k===todayK ? '今天' : (k===yestK ? '昨天' : k.slice(5).replace('-','月')+'日');
+    var list = groups[k];
+    var sleepMs = 0, feedN = 0;
+    list.forEach(function(r){
+      if(r.type==='feed') feedN++;
+      if(r.type==='sleep'){
+        var end = r.ended_at ? new Date(r.ended_at).getTime() : Date.now();
+        sleepMs += Math.max(0, end - new Date(r.started_at).getTime());
+      }
+    });
+    html += '<div class="daygroup"><div class="dayhead"><span>'+label+'</span>'
+         +  '<span class="sm">吃奶 '+feedN+' 次 · 睡眠 '+(sleepMs/3600000).toFixed(1)+'h</span></div>'
+         +  '<div class="tl">'+list.map(rowHTML).join('')+'</div></div>';
+  });
+  document.getElementById('histList').innerHTML = html;
+  document.getElementById('histCount').textContent = '共 '+records.length+' 条';
+}
+function renderStats(){
+  var days = [], i;
+  for(i=6;i>=0;i--){
+    var d = new Date(); d.setDate(d.getDate()-i);
+    days.push({key:dayKey(d), label:(d.getMonth()+1)+'/'+d.getDate(), feed:0, sleep:0});
+  }
+  var map = {};
+  days.forEach(function(d){ map[d.key] = d; });
+  records.forEach(function(r){
+    var k = dayKey(r.started_at), d = map[k];
+    if(!d) return;
+    if(r.type==='feed') d.feed++;
+    if(r.type==='sleep'){
+      var end = r.ended_at ? new Date(r.ended_at).getTime() : Date.now();
+      d.sleep += Math.max(0, end - new Date(r.started_at).getTime())/3600000;
+    }
+  });
+  var maxF = Math.max.apply(null, days.map(function(d){ return d.feed; }).concat([1]));
+  var maxS = Math.max.apply(null, days.map(function(d){ return d.sleep; }).concat([1]));
+  document.getElementById('chartFeed').innerHTML = days.map(function(d){
+    var h = Math.round(d.feed/maxF*84);
+    return '<div class="bar"><div class="v">'+(d.feed||'')+'</div><div class="col" style="height:'+h+'px"></div><div class="k">'+d.label+'</div></div>';
+  }).join('');
+  document.getElementById('chartSleep').innerHTML = days.map(function(d){
+    var h = Math.round(d.sleep/maxS*84);
+    return '<div class="bar s"><div class="v">'+(d.sleep?d.sleep.toFixed(1):'')+'</div><div class="col" style="height:'+h+'px"></div><div class="k">'+d.label+'</div></div>';
+  }).join('');
+
+  var tk = dayKey(new Date());
+  var td = records.filter(function(r){ return dayKey(r.started_at)===tk; });
+  var feeds = td.filter(function(r){ return r.type==='feed'; });
+  var bySub = {breast:0, bottle:0, formula:0};
+  feeds.forEach(function(r){ bySub[r.subtype] = (bySub[r.subtype]||0)+1; });
+  var ml = feeds.reduce(function(s,r){ return s+(Number(r.amount)||0); },0);
+  var sleepMs = 0, sleepN = 0;
+  td.filter(function(r){ return r.type==='sleep'; }).forEach(function(r){
+    sleepN++;
+    var end = r.ended_at ? new Date(r.ended_at).getTime() : Date.now();
+    sleepMs += Math.max(0, end - new Date(r.started_at).getTime());
+  });
+  var pees = td.filter(function(r){ return r.type==='diaper'&&(r.subtype==='pee'||r.subtype==='both'); }).length;
+  var poops = td.filter(function(r){ return r.type==='diaper'&&(r.subtype==='poop'||r.subtype==='both'); }).length;
+  document.getElementById('statsDetail').innerHTML =
+      '<div class="dr"><span class="k">吃奶次数</span><span class="v">'+feeds.length+' 次</span></div>'
+    + '<div class="dr"><span class="k">其中 母乳亲喂 / 瓶喂 / 配方奶</span><span class="v">'+(bySub.breast||0)+' / '+(bySub.bottle||0)+' / '+(bySub.formula||0)+'</span></div>'
+    + '<div class="dr"><span class="k">总奶量</span><span class="v">'+ml+' ml</span></div>'
+    + '<div class="dr"><span class="k">睡眠次数</span><span class="v">'+sleepN+' 次</span></div>'
+    + '<div class="dr"><span class="k">睡眠总时长</span><span class="v">'+(sleepMs/3600000).toFixed(1)+' 小时</span></div>'
+    + '<div class="dr"><span class="k">小便</span><span class="v">'+pees+' 次</span></div>'
+    + '<div class="dr"><span class="k">大便</span><span class="v">'+poops+' 次</span></div>';
+}
+function renderCloudHint(){
+  var box = document.getElementById('cloudHint');
+  box.innerHTML = cloudOn() ? ''
+    : '<div class="hint"><span>💡</span><div>当前是<b>本地模式</b>，记录只存在这台手机上。</div>'
+      + '<button id="hintGo">开启同步</button></div>';
+  var go = document.getElementById('hintGo');
+  if(go) go.onclick = function(){ switchTab('settings'); };
+}
+function renderCloudState(){
+  var box = document.getElementById('cloudState');
+  if(!box) return;
+  box.innerHTML = cloudOn()
+    ? '<div class="hint" style="background:#EDF8F2;border-color:#CFEBDC;color:#2E7A57"><span>✅</span><div>云同步已开启，家庭码：<b>'+esc(cfg.familyCode)+'</b></div></div>'
+    : '<div class="hint"><span>⚪</span><div>未开启。按下面三步配好后，两台手机就能看到同一份数据。</div></div>';
+}
+function renderAll(){
+  document.getElementById('babyName').textContent = cfg.babyName || '宝宝';
+  renderSyncChip();
+  renderCloudHint();
+  renderStatus();
+  renderToday();
+  renderHistory();
+  renderStats();
+  renderCloudState();
+}
+
+/* ================= 交互 ================= */
+function switchTab(name){
+  currentTab = name;
+  document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
+  document.getElementById('view-'+name).classList.add('active');
+  document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('active', t.dataset.tab===name); });
+  document.getElementById('main').scrollTop = 0;
+  if(name==='settings'){
+    document.getElementById('setBabyName').value = cfg.babyName || '';
+    document.getElementById('setDevice').value = cfg.device || '';
+    document.getElementById('setSbUrl').value = cfg.sbUrl || '';
+    document.getElementById('setSbKey').value = cfg.sbKey || '';
+    document.getElementById('setFamily').value = cfg.familyCode || '';
+  }
+}
+document.querySelectorAll('.tab').forEach(function(t){
+  t.addEventListener('click', function(){ switchTab(t.dataset.tab); });
+});
+
+// 四个大按钮
+document.querySelectorAll('.act').forEach(function(b){
+  b.addEventListener('click', function(){
+    var act = b.dataset.act;
+    if(act==='feed') openFeed();
+    else if(act==='sleep') toggleSleep();
+    else if(act==='pee') quickDiaper('pee');
+    else if(act==='poop') quickDiaper('poop');
+  });
+});
+function toggleSleep(){
+  var cur = activeSleep();
+  if(cur){
+    updateRecord(cur.id, {ended_at: new Date().toISOString()});
+    toast('已记录醒来 ☀️');
+  }else{
+    addRecord({type:'sleep', subtype:'sleep', started_at:new Date().toISOString(), ended_at:null});
+    toast('已记录入睡 😴');
+  }
+}
+function quickDiaper(sub){
+  addRecord({type:'diaper', subtype:sub, started_at:new Date().toISOString(), note:''});
+  toast(sub==='pee' ? '已记录小便 💧' : '已记录大便 💩');
+}
+
+/* ---- 吃奶弹层 ---- */
+function openFeed(){
+  feedSub = 'breast';
+  document.querySelectorAll('#feedTypes .tbtn').forEach(function(b){
+    b.classList.toggle('sel', b.dataset.v==='breast');
+  });
+  document.getElementById('feedTime').value = nowHM();
+  document.getElementById('feedAmount').value = '';
+  document.getElementById('feedNote').value = '';
+  document.getElementById('feedMask').classList.add('show');
+}
+document.querySelectorAll('#feedTypes .tbtn').forEach(function(b){
+  b.addEventListener('click', function(){
+    feedSub = b.dataset.v;
+    document.querySelectorAll('#feedTypes .tbtn').forEach(function(x){ x.classList.toggle('sel', x===b); });
+  });
+});
+document.getElementById('feedNow').onclick = function(){ document.getElementById('feedTime').value = nowHM(); };
+(function(){
+  var chips = document.getElementById('feedChips');
+  [30,60,90,120,150,180].forEach(function(v){
+    var b = document.createElement('button');
+    b.textContent = v;
+    b.onclick = function(){ document.getElementById('feedAmount').value = v; };
+    chips.appendChild(b);
+  });
+})();
+document.getElementById('feedSave').onclick = function(){
+  var amt = document.getElementById('feedAmount').value;
+  addRecord({
+    type:'feed',
+    subtype: feedSub,
+    amount: amt ? Number(amt) : null,
+    note: document.getElementById('feedNote').value.trim(),
+    started_at: hmToISO(document.getElementById('feedTime').value)
+  });
+  document.getElementById('feedMask').classList.remove('show');
+  toast('已记录吃奶 🍼');
+};
+
+/* ---- 记录详情 / 编辑 ---- */
+var editId = null;
+function openDetail(id){
+  var r = null;
+  for(var i=0;i<records.length;i++){ if(records[i].id===id){ r = records[i]; break; } }
+  if(!r) return;
+  editId = id;
+  var t = document.getElementById('actTitle');
+  var body = document.getElementById('actBody');
+  var html = '';
+  html += '<div class="lbl">'+(TYPE_META[r.type]?TYPE_META[r.type].name:'记录')+' · '+esc(SUB_META[r.subtype]||'')+'</div>';
+  if(r.type==='diaper'){
+    html += '<div class="row2" id="editDiaper">'
+      + '<button class="tbtn'+(r.subtype==='pee'?' sel':'')+'" data-v="pee"><span class="em">💧</span>小便</button>'
+      + '<button class="tbtn'+(r.subtype==='poop'?' sel':'')+'" data-v="poop"><span class="em">💩</span>大便</button>'
+      + '<button class="tbtn'+(r.subtype==='both'?' sel':'')+'" data-v="both"><span class="em">💧💩</span>都有</button>'
+      + '</div>';
+  }
+  if(r.type==='feed'){
+    html += '<div class="row2" id="editFeed">'
+      + '<button class="tbtn'+(r.subtype==='breast'?' sel':'')+'" data-v="breast"><span class="em">🤱</span>母乳</button>'
+      + '<button class="tbtn'+(r.subtype==='bottle'?' sel':'')+'" data-v="bottle"><span class="em">🍼</span>瓶喂</button>'
+      + '<button class="tbtn'+(r.subtype==='formula'?' sel':'')+'" data-v="formula"><span class="em">🥛</span>配方奶</button>'
+      + '</div>';
+    html += '<div class="lbl">奶量（ml）</div><input type="number" inputmode="numeric" id="editAmount" value="'+(r.amount||'')+'" placeholder="可留空" style="width:100%;padding:12px 13px;border:1px solid var(--line);border-radius:12px;background:#fff;outline:none">';
+  }
+  html += '<div class="lbl">开始时间</div><input type="time" id="editTime" value="'+hm(r.started_at)+'" style="width:100%;padding:12px 13px;border:1px solid var(--line);border-radius:12px;background:#fff;outline:none">';
+  if(r.type==='sleep'){
+    html += '<div class="lbl">结束时间（留空表示还在睡）</div><input type="time" id="editEnd" value="'+(r.ended_at?hm(r.ended_at):'')+'" style="width:100%;padding:12px 13px;border:1px solid var(--line);border-radius:12px;background:#fff;outline:none">';
+  }
+  html += '<div class="lbl">备注</div><input id="editNote" value="'+esc(r.note||'')+'" placeholder="可留空" style="width:100%;padding:12px 13px;border:1px solid var(--line);border-radius:12px;background:#fff;outline:none">';
+  body.innerHTML = html;
+
+  ['editDiaper','editFeed'].forEach(function(gid){
+    var g = document.getElementById(gid);
+    if(!g) return;
+    g.querySelectorAll('.tbtn').forEach(function(b){
+      b.onclick = function(){ g.querySelectorAll('.tbtn').forEach(function(x){ x.classList.toggle('sel', x===b); }); };
+    });
+  });
+  document.getElementById('actMask').classList.add('show');
+}
+document.getElementById('actSave').onclick = function(){
+  var r = null;
+  for(var i=0;i<records.length;i++){ if(records[i].id===editId){ r = records[i]; break; } }
+  if(!r){ document.getElementById('actMask').classList.remove('show'); return; }
+  var patch = {};
+  var tEl = document.getElementById('editTime');
+  if(tEl) patch.started_at = hmToISO(tEl.value, r.started_at);
+  var nEl = document.getElementById('editNote');
+  if(nEl) patch.note = nEl.value.trim();
+  var aEl = document.getElementById('editAmount');
+  if(aEl) patch.amount = aEl.value ? Number(aEl.value) : null;
+  var eEl = document.getElementById('editEnd');
+  if(eEl){
+    patch.ended_at = eEl.value ? hmToISO(eEl.value, r.ended_at || r.started_at) : null;
+  }
+  ['editDiaper','editFeed'].forEach(function(gid){
+    var g = document.getElementById(gid);
+    if(!g) return;
+    var sel = g.querySelector('.tbtn.sel');
+    if(sel) patch.subtype = sel.dataset.v;
+  });
+  updateRecord(editId, patch);
+  document.getElementById('actMask').classList.remove('show');
+  toast('已更新');
+};
+document.getElementById('actDelete').onclick = function(){
+  if(!editId) return;
+  if(!confirm('确定删除这条记录？')) return;
+  removeRecord(editId);
+  editId = null;
+  document.getElementById('actMask').classList.remove('show');
+  toast('已删除');
+};
+
+// 点击时间轴行
+document.addEventListener('click', function(e){
+  var row = e.target.closest ? e.target.closest('.tl .row') : null;
+  if(row && row.dataset.id) openDetail(row.dataset.id);
+});
+// 关闭弹层
+document.querySelectorAll('[data-close]').forEach(function(b){
+  b.onclick = function(){ document.getElementById(b.dataset.close).classList.remove('show'); };
+});
+document.querySelectorAll('.mask').forEach(function(m){
+  m.addEventListener('click', function(e){ if(e.target===m) m.classList.remove('show'); });
+});
+
+/* ---- 设置 ---- */
+document.getElementById('btnSaveBase').onclick = function(){
+  cfg.babyName = document.getElementById('setBabyName').value.trim() || '宝宝';
+  cfg.device = document.getElementById('setDevice').value.trim();
+  saveCfg(); renderAll(); toast('已保存');
+};
+document.getElementById('btnSaveCloud').onclick = function(){
+  var u = document.getElementById('setSbUrl').value.trim();
+  var k = document.getElementById('setSbKey').value.trim();
+  var f = document.getElementById('setFamily').value.trim();
+  if(!u || !k || !f){ toast('三项都要填哦'); return; }
+  if(u.indexOf('http')!==0){ toast('项目地址要以 https:// 开头'); return; }
+  cfg.sbUrl = u; cfg.sbKey = k; cfg.familyCode = f;
+  saveCfg(); renderAll();
+  toast('正在连接…');
+  syncFull(true);
+};
+document.getElementById('btnSyncNow').onclick = function(){ syncFull(false); };
+document.getElementById('btnDropCloud').onclick = function(){
+  if(!confirm('断开后本机将回到本地模式，已下载的数据会保留。确定？')) return;
+  cfg.sbUrl=''; cfg.sbKey=''; cfg.familyCode='';
+  saveCfg(); renderAll(); toast('已断开云同步');
+};
+document.getElementById('btnCopySql').onclick = function(){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(SQL).then(function(){ toast('建表 SQL 已复制'); },
+      function(){ fallbackCopy(SQL); });
+  } else fallbackCopy(SQL);
+};
+function fallbackCopy(text){
+  var ta = document.createElement('textarea');
+  ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); toast('建表 SQL 已复制'); }catch(e){ toast('请手动复制 SQL'); }
+  document.body.removeChild(ta);
+}
+document.getElementById('btnClear').onclick = function(){
+  if(!confirm('将删除本机全部 '+records.length+' 条记录，云端不受影响。确定？')) return;
+  records = []; saveData(); renderAll(); toast('本机数据已清空');
+};
+document.getElementById('syncChip').onclick = function(){ syncFull(false); };
+
+/* ---- 导出 CSV ---- */
+document.getElementById('btnExport').onclick = function(){
+  if(!records.length){ toast('还没有记录可导出'); return; }
+  sortRecs();
+  var rows = [['日期','开始时间','类型','细分','奶量(ml)','结束时间','时长(分钟)','备注','记录人']];
+  records.slice().reverse().forEach(function(r){
+    var dur = r.ended_at ? Math.round((new Date(r.ended_at)-new Date(r.started_at))/60000) : '';
+    rows.push([
+      dayKey(r.started_at), hm(r.started_at),
+      TYPE_META[r.type] ? TYPE_META[r.type].name : r.type,
+      SUB_META[r.subtype] || '',
+      r.amount || '',
+      r.ended_at ? hm(r.ended_at) : '',
+      dur, r.note || '', r.created_by || ''
+    ]);
+  });
+  var csv = '\ufeff' + rows.map(function(row){
+    return row.map(function(v){ return '"'+String(v==null?'':v).replace(/"/g,'""')+'"'; }).join(',');
+  }).join('\r\n');
+  var name = '宝宝作息记录_'+dayKey(new Date())+'.csv';
+  var blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  try{
+    var file = new File([blob], name, {type:'text/csv'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      navigator.share({files:[file], title:'宝宝作息记录'}).catch(function(){ download(blob, name); });
+      return;
+    }
+  }catch(e){}
+  download(blob, name);
+};
+function download(blob, name){
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); document.body.removeChild(a); }, 1500);
+  toast('已导出 '+records.length+' 条记录');
+}
+
+/* ---- 图标 & 标题 ---- */
+(function(){
+  try{
+    var c = document.createElement('canvas'); c.width = c.height = 180;
+    var ctx = c.getContext('2d');
+    var g = ctx.createLinearGradient(0,0,180,180);
+    g.addColorStop(0,'#FBBF7A'); g.addColorStop(1,'#F2994A');
+    ctx.fillStyle = g; ctx.fillRect(0,0,180,180);
+    ctx.font = '108px "Apple Color Emoji","Segoe UI Emoji",serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('👶', 90, 96);
+    var link = document.querySelector('link[rel="apple-touch-icon"]');
+    if(link) link.href = c.toDataURL('image/png');
+  }catch(e){}
+})();
+
+/* ---- 实时刷新状态卡 ---- */
+setInterval(function(){ if(currentTab==='record') renderStatus(); }, 30000);
+
+/* ---- 回到前台自动同步 ---- */
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState==='visible') syncFull(true);
+});
+window.addEventListener('online', function(){ syncFull(true); });
+
+/* ---- 启动 ---- */
+switchTab('record');
+renderAll();
+if(cloudOn()) syncFull(true);
+
+/* 调试钩子：可在浏览器控制台查看/操作数据 */
+try{ window.__babyLog = { records:function(){return records;}, cfg:cfg, addRecord:addRecord, updateRecord:updateRecord, removeRecord:removeRecord, toggleSleep:toggleSleep, renderAll:renderAll, syncFull:syncFull, SQL:SQL }; }catch(e){}
+
+})();
+</script>
+</body>
+</html>
